@@ -1,0 +1,108 @@
+body {
+	display: flex;
+	justify-content: center;
+}
+
+#app {
+	min-width: 50rem;
+}
+
+h1, h6 {
+	font-family: 'Poppins', sans-serif;
+	color: #aaabb8;
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	margin-bottom: 0;
+}
+
+h6 {
+	margin-bottom: 1rem;
+}
+
+section {
+	display: flex;
+}
+
+section.toolbar {
+	display: flex;
+	justify-content: center;
+}
+
+div.setting {
+	font-family: 'Source Sans Pro', sans-serif;
+	display: flex;
+	flex-direction: column;
+	margin-left: 2rem;
+}
+
+div.setting:first-child {
+	margin-left: 0;
+}
+
+div.setting label {
+	font-size: 0.75rem;
+}
+
+div.setting label.multi-label span:first-child::after {
+	content: '\00a0 ';
+}
+
+div.setting input {
+	font-family: 'Source Sans Pro', sans-serif; /* repeated due to input[type="date" i] useragent style */
+	font-size: 1.15rem;
+	border: 0;
+	height: 1.5rem;
+}
+
+div.setting input:focus {
+	outline: none;
+}
+
+div.setting input[type="number"] {
+	width: 5rem;
+}
+
+section.tickets {
+	justify-content: space-evenly;
+	align-items: flex-start;
+	flex-wrap: wrap;
+}
+
+div.ticket {
+	width: 20rem;
+	margin: 0 3rem;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+}
+
+div.ticket h6 span:first-child::after {
+	content: '\00a0 ';
+}
+
+ul.ticket-details, ul.availability {
+	font-family: 'Source Sans Pro', sans-serif;
+	font-size: 0.75rem;
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+ul.ticket-details {
+	width: 60%;
+}
+
+ul.availability {
+	width: calc(40% - 2rem);
+	margin-left: 2rem;
+}
+
+ul.availability span:last-child {
+	padding-left: 1rem;
+}
+
+span.highlight {
+	font-weight: bold;
+	color: tomato;
+}

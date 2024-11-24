@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Source+Sans+Pro&display=swap" rel="stylesheet">
+	<link rel="stylesheet" type="text/css" href="stylesheet.css">
+</head>
+
+<script type="importmap">
+{
+	"imports": {
+		"vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js",
+		"axios": "https://unpkg.com/axios@1.7.7/dist/esm/axios.js",
+		"date-fns": "https://cdn.jsdelivr.net/npm/date-fns@4.1.0/+esm",
+		"date-fns-constants": "https://cdn.jsdelivr.net/npm/date-fns@4.1.0/constants.js"
+	}
+}
+</script>
+
+<body>
+	<div id="app">
+		<section class="toolbar">
+			<div class="setting">
+				<label for="timer">Timer</label>
+				<input id="timer" type="range" min="0" max="15" step="1"
+					v-model="config.refreshInterval"
+					v-on:input="updateInterval" />
+			</div>
+			<div class="setting">
+				<label for="remaining">Remaining</label>
+				<input id="remaining" type="number" readonly
+					v-model="interval.displayRemaining" />
+			</div>
+			<div class="setting">
+				<label for="tickets" class="multi-label">
+					<span>Tickets -</span>
+					<span>{{ config.minCount }}</span>
+				</label>
+				<input id="tickets" type="range" min="1" max="10" step="1"
+					v-model="config.minCount"
+					v-on:input="updateMinCount" />
+			</div>
+			<div class="setting">
+				<label for="start">Start</label>
+				<input id="start" type="date"
+					:min="config.inputMinTimeStr"
+					:max="config.inputMaxTimeStr"
+					v-model="config.startTimeStr" />
+			</div>
+			<div class="setting">
+				<label for="end">End</label>
+				<input id="end" type="date"
+					:min="config.inputMinTimeStr"
+					:max="config.inputMaxTimeStr"
+					v-model="config.endTimeStr" />
+			</div>
+		</section>
+		<section class="tickets">
+			<tickets
+				:config="config"
+				:data="types"
+			>
+			</tickets>
+		</section>
+	</div>
+
+<script type="module">
+import { createApp, ref } from 'vue'
+import { format, parse, addMonths, isWithinInterval } from 'date-fns'
+import axios from 'axios'
+
+
+const axiosInstance = axios.create();
+const usjTicket = {
+	kind: 3,
+	minCount: 3,
+	refreshInterval: 3,
+	search: ['Yoshi', 'Mine'],
+	dateFormat: 'yyyy-MM-dd',
+	startTimeStr: format(new Date(), 'yyyy-MM-dd'),
+	endTimeStr: format(addMonths(new Date(), 2), 'yyyy-MM-dd')
+};
+
+const app = createApp({
+	data() {
+		usjTicket.inputMinTimeStr = usjTicket.startTimeStr;
+		usjTicket.inputMaxTimeStr = usjTicket.endTimeStr;
+		usjTicket.startTime = parse(usjTicket.startTimeStr, usjTicket.dateFormat, new Date());
+		usjTicket.endTime = parse(usjTicket.endTimeStr, usjTicket.dateFormat, new Date());
+		
+		usjTicket.startTimeStr = '2025-01-30';
+		usjTicket.endTimeStr = '2025-02-02';
+		
+		return {
+			config: usjTicket,
+			interval: {
+				remaining: -1,
+				displayRemaining: -1,
+				interval: {},
+			},
+			types: [{
+				id: -1,
+				name: 'dummy',
+				details: [{
+					detail: 'foo',
+					note: 'bar',
+					availability: [{
+						date: usjTicket.inputMinTimeStr,
+						count: 5,
+						highlight: {
+							count: 5 >= usjTicket.minCount,
+							date: isWithinInterval(parse(usjTicket.inputMinTimeStr
+									, usjTicket.dateFormat
+									, new Date())
+								, usjTicket.startTime
+								, usjTicket.endTime)
+						}
+					}]
+				}]
+			}]
+		};
+	},
+	mounted() {
+		this.interval.remaining = this.config.refreshInterval * 60;
+		this.interval.displayRemaining = this.interval.remaining;
+		this.interval.interval = setInterval(this.intervalHandler, 1000);
+	},
+	created() {
+		this.getTickets();
+	},
+	computed: {
+		formatStart() {
+			return format(this.config.startTime, this.config.dateFormat);
+		}
+	},
+	methods: {
+		formatEnd() {
+			return format(this.config.endTime, this.config.dateFormat);
+		},
+		intervalHandler() {
+			if(parseInt(this.config.refreshInterval) === 0) {
+				this.interval.displayRemaining = 0;
+				return;
+			}
+			
+			this.interval.remaining--;
+			
+			var diff = this.interval.displayRemaining - this.interval.remaining;
+			if(this.interval.remaining <= 10
+				|| (this.interval.remaining <= 60 && this.interval.remaining > 10 && diff >= 5)
+				|| (this.interval.remaining <= 120 && this.interval.remaining > 60 && diff >= 10)
+				|| (this.interval.remaining > 120 && diff >= 30))
+				this.interval.displayRemaining = this.interval.remaining;
+			
+			if(this.interval.remaining === 0)
+			{
+				this.getTicketDates();
+				this.updateInterval();
+			}
+		},
+		updateInterval() {
+			this.interval.remaining = parseInt(this.config.refreshInterval) * 60;
+			this.interval.displayRemaining = this.interval.remaining;
+		},
+		getTickets() {
+			return Promise.all([this.getTicketEndTime(), this.getTicketTypes()])
+			.then(nothing => {
+				return this.getTicketDates();
+			})
+			.catch(error => {
+				console.error('An error occurred: ', error);
+			});
+		},
+		getTicketEndTime() {
+			return axios.get('https://nta.tripodeck.com/api/official/usj/type_config/page')
+			.then(response => {
+				return this.validateResponse(response
+					, 'Unsuccessful request to get ticket configuration.'
+					, 'No ticket configurations.'
+					, (data) => data.data.list);
+			})
+			.then(ticketConfigList => {
+				let filteredList = ticketConfigList.filter(item => item.ticketKind === this.config.kind);
+				return new Promise((resolve, reject) => {
+					if(filteredList.length !== 1) {
+						reject('No ticket configuration type: ', this.config.kind);
+						return;
+					}
+						
+					let endDate = parse(filteredList[0].sellDeadline.split('T')[0], this.config.dateFormat, new Date());
+					this.config.endTime = endDate;
+					this.config.endTimeStr = format(endDate, this.config.dateFormat);
+					this.config.inputMaxTimeStr = this.config.endTime;
+					
+					resolve();
+				});
+			})
+		},
+		getTicketTypes() {
+			return axios.get('https://nta.tripodeck.com/api/official/usj/page?ticketKind=' + this.config.kind)
+			.then(response => {
+				return this.validateResponse(response
+					, 'Unsuccessful request to get ticket types.'
+					, 'No ticket types.'
+					, (data) => data.data.list);
+			})
+			.then(ticketTypeList => {
+				return new Promise((resolve, reject) => {
+					if(ticketTypeList.length === 0) {
+						reject('No ticket types.');
+						return;
+					}
+					
+					this.types = ticketTypeList
+						.filter(ttype => ttype.productTicketWebsiteUsjList.filter(
+							item => this.config.search.some(filter => item.detailBatNo.includes(filter))
+						).length > 0)
+						.map(ttype => {
+							return {
+								id: ttype.productId,
+								name: ttype.officialName,
+								lastTicketDate: "Loading...",
+								details: ttype.productTicketWebsiteUsjList.map(item => {
+									return {
+										detail: item.detailBatNo,
+										note: item.colorText,
+										highlight: this.config.search.some(filter => item.detailBatNo.includes(filter))
+									}
+								}),
+								availability: []
+							}
+						});
+						
+					resolve();
+				});
+			})
+		},
+		getTicketDates() {
+			return Promise.all(
+				this.types.map(type => {
+					return axios.get('https://nta.tripodeck.com/api/official/usj/list', {
+						params: {
+							startTime: format(this.config.startTime, this.config.dateFormat),
+							endTime: format(this.config.endTime, this.config.dateFormat),
+							ticketKind: this.config.kind,
+							productId: type.id
+						}
+					})
+					.then(response => {
+						return this.validateResponse(response
+							, 'Unsuccessful request to get ticket date information: ' + type.name
+							, 'No ticket dates: ' + type.name
+							, (data) => data.data);
+					})
+					.then(ticketDatesList => {
+						return new Promise((resolve, reject) => {
+							if(ticketDatesList.length === 0) {
+								type.availability = [];
+								type.lastTicketDate = "whoops! No ticket dates.";
+								reject('No tickets: ' + type.name);
+								return;
+							}
+							
+							let filteredList = ticketDatesList.filter(ticket => ticket.num > 0);
+							type.lastTicketDate = ticketDatesList.slice(-1)[0].travelTime.split('T')[0];
+							
+							if(filteredList.length === 0) {
+								type.availability = [];
+								reject('No tickets for any dates for range: ' + type.name);
+								return;
+							}
+							
+							type.availability = filteredList.map(ticket => {
+								return {
+									date: ticket.travelTime.split('T')[0],
+									count: ticket.num,
+									highlight: {
+										count: ticket.num >= this.config.minCount,
+										date: isWithinInterval(parse(ticket.travelTime.split('T')[0]
+												, this.config.dateFormat
+												, new Date())
+											, this.config.startTime
+											, this.config.endTime)
+									}
+								}
+							});
+							
+							resolve();
+						});
+					});
+				})
+			)
+			.catch(error => {
+				console.error('An error occurred: ', error);
+			});
+		},
+		validateResponse(response, requestError, dataError, dataResolver) {
+			return new Promise((resolve, reject) => {
+				if(response.status != 200 
+					|| response.data.success !== true)
+				{
+					reject(requestError);
+					return;
+				}
+					
+				if(response.data.data === undefined
+					|| response.data.data.length === 0)
+				{
+					reject(dataError);
+					return;
+				}
+				
+				resolve(dataResolver(response.data));
+			});
+		},
+		updateMinCount() {
+			this.types.forEach(ticket => {
+				if(ticket.availability === undefined || ticket.availability.constructor !== Array)
+					return;
+				ticket.availability.forEach(avail => {
+					avail.highlight.count = avail.count >= this.config.minCount;
+				});
+			});
+		}
+	}
+});
+
+app.component('tickets', {
+	props: {
+		config: Object,
+		data: {
+			type: Array,
+			default: []
+		}
+	},
+	template: `<ticket
+		v-for="(ticket, index) in data"
+		:config="config"
+		:data="ticket">
+	</ticket>`
+});
+
+app.component('ticket', {
+	props: {
+		config: Object,
+		data: Object
+	},
+	template: `<div class="ticket">
+		<h1>{{ data.name }}</h1>
+		<h6>
+			<span>Dates until</span>
+			<span :class="{ 'highlight' : data.lastTicketDate === config.inputMaxTime}">{{ data.lastTicketDate }}</span>
+		</h6>
+		<ul class="ticket-details">
+			<li
+				v-for="(detail, index) in data.details">
+				<span :class="{ 'highlight' : detail.highlight === true}">{{ detail.detail }}</span>
+				<span>{{ detail.note }}</span>
+			</li>
+		</ul>
+		<ul class="availability">
+			<li
+				v-for="(date, index) in data.availability">
+				<span :class="{ 'highlight' : date.highlight.date === true}">{{ date.date }}</span>
+				<span :class="{ 'highlight' : date.highlight.count === true}">{{ date.count }}</span>
+			</li>
+		</ul>
+	</div>`
+});
+
+const appInstance = app.mount('#app');
+</script>
+
+</body>
