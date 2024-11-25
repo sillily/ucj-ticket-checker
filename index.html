@@ -90,9 +90,6 @@ const app = createApp({
 		usjTicket.startTime = parse(usjTicket.startTimeStr, usjTicket.dateFormat, new Date());
 		usjTicket.endTime = parse(usjTicket.endTimeStr, usjTicket.dateFormat, new Date());
 		
-		usjTicket.startTimeStr = '2025-01-30';
-		usjTicket.endTimeStr = '2025-02-02';
-		
 		return {
 			config: usjTicket,
 			interval: {
