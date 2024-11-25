@@ -123,8 +123,7 @@ const app = createApp({
 		};
 	},
 	mounted() {
-		this.interval.remaining = this.config.refreshInterval * 60;
-		this.interval.displayRemaining = this.interval.remaining;
+		this.updateInterval();
 		this.interval.interval = setInterval(this.intervalHandler, 1000);
 	},
 	created() {
