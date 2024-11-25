@@ -190,10 +190,10 @@ const app = createApp({
 						return;
 					}
 						
-					let endDate = parse(filteredList[0].sellDeadline.split('T')[0], this.config.dateFormat, new Date());
+					let endDate = parse(this.getDate(filteredList[0].sellDeadline), this.config.dateFormat, new Date());
 					this.config.endTime = endDate;
 					this.config.endTimeStr = format(endDate, this.config.dateFormat);
-					this.config.inputMaxTimeStr = this.config.endTime;
+					this.config.inputMaxTimeStr = this.config.endTimeStr;
 					
 					resolve();
 				});
@@ -265,7 +265,7 @@ const app = createApp({
 							}
 							
 							let filteredList = ticketDatesList.filter(ticket => ticket.num > 0);
-							type.lastTicketDate = ticketDatesList.slice(-1)[0].travelTime.split('T')[0];
+							type.lastTicketDate = this.getDate(ticketDatesList.slice(-1)[0].travelTime);
 							
 							if(filteredList.length === 0) {
 								type.availability = [];
@@ -274,14 +274,13 @@ const app = createApp({
 							}
 							
 							type.availability = filteredList.map(ticket => {
+								let travelDate = this.getDate(ticket.travelTime);
 								return {
-									date: ticket.travelTime.split('T')[0],
+									date: travelDate,
 									count: ticket.num,
 									highlight: {
 										count: ticket.num >= this.config.minCount,
-										date: isWithinInterval(parse(ticket.travelTime.split('T')[0]
-												, this.config.dateFormat
-												, new Date())
+										date: isWithinInterval(parse(travelDate, this.config.dateFormat, new Date())
 											, this.config.startTime
 											, this.config.endTime)
 									}
@@ -324,6 +323,9 @@ const app = createApp({
 					avail.highlight.count = avail.count >= this.config.minCount;
 				});
 			});
+		},
+		getDate(isoDateStr) {
+			return isoDateStr.split('T')[0];
 		}
 	}
 });
@@ -352,7 +354,7 @@ app.component('ticket', {
 		<h1>{{ data.name }}</h1>
 		<h6>
 			<span>Dates until</span>
-			<span :class="{ 'highlight' : data.lastTicketDate === config.inputMaxTime}">{{ data.lastTicketDate }}</span>
+			<span :class="{ 'highlight' : data.lastTicketDate === config.inputMaxTimeStr}">{{ data.lastTicketDate }}</span>
 		</h6>
 		<ul class="ticket-details">
 			<li
