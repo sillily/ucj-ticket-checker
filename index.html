@@ -24,7 +24,7 @@
 	<div id="app">
 		<section class="toolbar">
 			<div class="setting">
-				<label for="timer">Timer</label>
+				<label for="timer">Refresh Timer</label>
 				<input id="timer" type="range" min="0" max="15" step="1"
 					v-model="config.refreshInterval"
 					v-on:input="updateInterval" />
@@ -72,8 +72,7 @@ import { createApp, ref } from 'vue'
 import { format, parse, addMonths, isWithinInterval } from 'date-fns'
 import axios from 'axios'
 
-
-const axiosInstance = axios.create();
+axios.defaults.baseURL = 'https://nta.tripodeck.com/api/official/usj';
 const usjTicket = {
 	kind: 3,
 	minCount: 3,
@@ -175,7 +174,7 @@ const app = createApp({
 			});
 		},
 		getTicketEndTime() {
-			return axios.get('https://nta.tripodeck.com/api/official/usj/type_config/page')
+			return axios.get('/type_config/page')
 			.then(response => {
 				return this.validateResponse(response
 					, 'Unsuccessful request to get ticket configuration.'
@@ -200,7 +199,7 @@ const app = createApp({
 			})
 		},
 		getTicketTypes() {
-			return axios.get('https://nta.tripodeck.com/api/official/usj/page?ticketKind=' + this.config.kind)
+			return axios.get('/page?ticketKind=' + this.config.kind)
 			.then(response => {
 				return this.validateResponse(response
 					, 'Unsuccessful request to get ticket types.'
@@ -241,7 +240,7 @@ const app = createApp({
 		getTicketDates() {
 			return Promise.all(
 				this.types.map(type => {
-					return axios.get('https://nta.tripodeck.com/api/official/usj/list', {
+					return axios.get('/list', {
 						params: {
 							startTime: format(this.config.startTime, this.config.dateFormat),
 							endTime: format(this.config.endTime, this.config.dateFormat),
